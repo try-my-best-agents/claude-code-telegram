@@ -36,30 +36,59 @@ Bot: 🤖 I'll help you add robust error handling to your API...
 
 ## ✨ Features
 
+### 🚧 Development Status
+
+This project is actively being developed. Here's the current status of features:
+
+#### ✅ **Working Features**
+- Basic Telegram bot functionality with command handling
+- Directory navigation (`cd`, `ls`, `pwd`)
+- User authentication (whitelist-based)
+- Rate limiting and security controls
+- Basic Claude integration for conversations
+- File upload handling
+- Session management (in-memory)
+
+#### 🔄 **Work in Progress**
+The following features are partially implemented or planned:
+
+- **Streaming Responses** - Currently shows progress updates, not true streaming
+- **Quick Actions** - Buttons exist but execution not yet connected
+- **Session Export** - Command exists but export functionality pending
+- **Git Integration** - Planned but not implemented
+- **Image/Screenshot Support** - Handler exists but processing not implemented
+- **Command History** - Tracking not yet implemented
+- **Database Persistence** - Using in-memory storage, SQLite integration pending
+- **Usage Analytics** - Basic cost tracking only, detailed analytics pending
+- **Multi-Provider Auth** - Only whitelist auth currently supported
+- **Advanced Error Recovery** - Basic error handling only
+- **Project Context Switching** - Limited context persistence
+- **Telemetry/Monitoring** - Not yet implemented
+
 ### 🤖 Claude AI Integration
 - **Full Claude Code Access**: Complete integration with Claude's powerful coding assistant
-- **Session Persistence**: Maintain conversation context across multiple interactions
-- **Streaming Responses**: Real-time response streaming for immediate feedback
-- **Error Recovery**: Intelligent error handling with helpful suggestions
+- **Session Persistence**: Maintain conversation context across multiple interactions *(in-memory only)*
+- **Streaming Responses**: Real-time response streaming for immediate feedback *(work in progress)*
+- **Error Recovery**: Intelligent error handling with helpful suggestions *(basic implementation)*
 - **Tool Support**: Access to Claude's full toolkit including file operations, code analysis, and more
 
 ### 📱 Terminal-like Interface  
 - **Directory Navigation**: `cd`, `ls`, `pwd` commands just like a real terminal
 - **File Management**: Upload files for Claude to review and analyze
-- **Project Switching**: Easy navigation between different codebases
-- **Command History**: Track your recent commands and sessions
+- **Project Switching**: Easy navigation between different codebases *(limited context persistence)*
+- **Command History**: Track your recent commands and sessions *(not yet implemented)*
 
 ### 🛡️ Enterprise-Grade Security
 - **Access Control**: Whitelist-based user authentication
 - **Directory Isolation**: Strict sandboxing to approved project directories
 - **Rate Limiting**: Prevent abuse with configurable request and cost limits  
-- **Audit Logging**: Complete tracking of all user actions and security events
+- **Audit Logging**: Complete tracking of all user actions and security events *(basic implementation)*
 - **Input Validation**: Protection against injection attacks and directory traversal
 
 ### ⚡ Developer Experience
-- **Quick Actions**: One-click buttons for common tasks (test, lint, build)
+- **Quick Actions**: One-click buttons for common tasks (test, lint, build) *(UI only, execution pending)*
 - **Session Management**: Start, continue, end, and monitor Claude sessions
-- **Usage Tracking**: Monitor your Claude API usage and costs
+- **Usage Tracking**: Monitor your Claude API usage and costs *(basic implementation)*
 - **Responsive Design**: Clean, mobile-friendly interface with emoji indicators
 
 ## 🛠️ Installation
