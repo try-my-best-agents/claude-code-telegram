@@ -168,7 +168,7 @@ Once your bot is running, you can use these commands in Telegram:
 #### Session Management
 ```
 /new                  # Start a new Claude session
-/continue             # Continue previous session
+/continue [message]   # Continue previous session (optionally with message)
 /end                  # End current session
 /status               # Show session status and usage
 ```

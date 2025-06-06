@@ -7,6 +7,7 @@ import structlog
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ContextTypes
 
+from ...claude.facade import ClaudeIntegration
 from ...config.settings import Settings
 from ...security.audit import AuditLogger
 from ...security.validators import SecurityValidator
@@ -74,7 +75,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         "• `/projects` - Show available projects\n\n"
         "**Session Commands:**\n"
         "• `/new` - Start new Claude session\n"
-        "• `/continue` - Continue last session\n"
+        "• `/continue [message]` - Continue last session (optionally with message)\n"
         "• `/end` - End current session\n"
         "• `/status` - Show session and usage status\n"
         "• `/export` - Export session history\n\n"
@@ -149,36 +150,143 @@ async def new_session(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
 
 async def continue_session(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle /continue command."""
+    """Handle /continue command with optional prompt."""
     user_id = update.effective_user.id
+    settings: Settings = context.bot_data["settings"]
+    claude_integration: ClaudeIntegration = context.bot_data.get("claude_integration")
+    audit_logger: AuditLogger = context.bot_data.get("audit_logger")
 
-    # Check if there's an existing session
-    claude_session_id = context.user_data.get("claude_session_id")
+    # Parse optional prompt from command arguments
+    prompt = " ".join(context.args) if context.args else None
+    
+    current_dir = context.user_data.get(
+        "current_directory", settings.approved_directory
+    )
 
-    if claude_session_id:
-        await update.message.reply_text(
-            f"🔄 **Continuing Session**\n\n"
-            f"Session ID: `{claude_session_id[:8]}...`\n\n"
-            f"Send a message to continue where you left off!",
-            parse_mode="Markdown",
-        )
-    else:
-        keyboard = [
-            [
-                InlineKeyboardButton(
-                    "🆕 Start New Session", callback_data="action:new_session"
+    try:
+        if not claude_integration:
+            await update.message.reply_text(
+                "❌ **Claude Integration Not Available**\n\n"
+                "Claude integration is not properly configured."
+            )
+            return
+
+        # Check if there's an existing session in user context
+        claude_session_id = context.user_data.get("claude_session_id")
+
+        if claude_session_id:
+            # We have a session in context, continue it directly
+            status_msg = await update.message.reply_text(
+                f"🔄 **Continuing Session**\n\n"
+                f"Session ID: `{claude_session_id[:8]}...`\n"
+                f"Directory: `{current_dir.relative_to(settings.approved_directory)}/`\n\n"
+                f"{'Processing your message...' if prompt else 'Continuing where you left off...'}",
+                parse_mode="Markdown",
+            )
+
+            # Continue with the existing session
+            claude_response = await claude_integration.run_command(
+                prompt=prompt or "",
+                working_directory=current_dir,
+                user_id=user_id,
+                session_id=claude_session_id,
+            )
+        else:
+            # No session in context, try to find the most recent session
+            status_msg = await update.message.reply_text(
+                "🔍 **Looking for Recent Session**\n\n"
+                "Searching for your most recent session in this directory...",
+                parse_mode="Markdown",
+            )
+
+            claude_response = await claude_integration.continue_session(
+                user_id=user_id,
+                working_directory=current_dir,
+                prompt=prompt,
+            )
+
+        if claude_response:
+            # Update session ID in context
+            context.user_data["claude_session_id"] = claude_response.session_id
+
+            # Delete status message and send response
+            await status_msg.delete()
+            
+            # Format and send Claude's response
+            from ..utils.formatting import ResponseFormatter
+            formatter = ResponseFormatter()
+            formatted_messages = formatter.format_claude_response(claude_response)
+            
+            for msg in formatted_messages:
+                await update.message.reply_text(
+                    msg.content,
+                    parse_mode="Markdown",
+                    reply_markup=msg.reply_markup,
                 )
-            ]
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
 
+            # Log successful continue
+            if audit_logger:
+                await audit_logger.log_command(
+                    user_id=user_id, 
+                    command="continue", 
+                    args=context.args or [], 
+                    success=True
+                )
+
+        else:
+            # No session found to continue
+            await status_msg.edit_text(
+                "❌ **No Session Found**\n\n"
+                f"No recent Claude session found in this directory.\n"
+                f"Directory: `{current_dir.relative_to(settings.approved_directory)}/`\n\n"
+                f"**What you can do:**\n"
+                f"• Use `/new` to start a fresh session\n"
+                f"• Use `/status` to check your sessions\n"
+                f"• Navigate to a different directory with `/cd`",
+                parse_mode="Markdown",
+                reply_markup=InlineKeyboardMarkup([
+                    [
+                        InlineKeyboardButton(
+                            "🆕 New Session", callback_data="action:new_session"
+                        ),
+                        InlineKeyboardButton(
+                            "📊 Status", callback_data="action:status"
+                        ),
+                    ]
+                ])
+            )
+
+    except Exception as e:
+        error_msg = str(e)
+        logger.error("Error in continue command", error=error_msg, user_id=user_id)
+
+        # Delete status message if it exists
+        try:
+            if 'status_msg' in locals():
+                await status_msg.delete()
+        except:
+            pass
+
+        # Send error response
         await update.message.reply_text(
-            "❌ **No Active Session**\n\n"
-            "You don't have an active Claude session to continue.\n"
-            "Would you like to start a new one?",
+            f"❌ **Error Continuing Session**\n\n"
+            f"An error occurred while trying to continue your session:\n\n"
+            f"`{error_msg}`\n\n"
+            f"**Suggestions:**\n"
+            f"• Try starting a new session with `/new`\n"
+            f"• Check your session status with `/status`\n"
+            f"• Contact support if the issue persists",
             parse_mode="Markdown",
-            reply_markup=reply_markup,
         )
+
+        # Log failed continue
+        if audit_logger:
+            await audit_logger.log_command(
+                user_id=user_id, 
+                command="continue", 
+                args=context.args or [], 
+                success=False
+            )
 
 
 async def list_files(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

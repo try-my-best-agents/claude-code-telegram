@@ -4,6 +4,7 @@ import structlog
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ContextTypes
 
+from ...claude.facade import ClaudeIntegration
 from ...config.settings import Settings
 from ...security.audit import AuditLogger
 from ...security.validators import SecurityValidator
@@ -439,31 +440,102 @@ async def _handle_end_session_action(query, context: ContextTypes.DEFAULT_TYPE) 
 
 async def _handle_continue_action(query, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle continue session action."""
-    claude_session_id = context.user_data.get("claude_session_id")
+    user_id = query.from_user.id
+    settings: Settings = context.bot_data["settings"]
+    claude_integration: ClaudeIntegration = context.bot_data.get("claude_integration")
 
-    if claude_session_id:
-        await query.edit_message_text(
-            f"🔄 **Continuing Session**\n\n"
-            f"Session ID: `{claude_session_id[:8]}...`\n\n"
-            f"Send a message to continue where you left off!",
-            parse_mode="Markdown",
-        )
-    else:
-        keyboard = [
-            [
-                InlineKeyboardButton(
-                    "🆕 Start New Session", callback_data="action:new_session"
-                )
-            ]
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
+    current_dir = context.user_data.get(
+        "current_directory", settings.approved_directory
+    )
 
+    try:
+        if not claude_integration:
+            await query.edit_message_text(
+                "❌ **Claude Integration Not Available**\n\n"
+                "Claude integration is not properly configured."
+            )
+            return
+
+        # Check if there's an existing session in user context
+        claude_session_id = context.user_data.get("claude_session_id")
+
+        if claude_session_id:
+            # Continue with the existing session (no prompt = use --continue)
+            await query.edit_message_text(
+                f"🔄 **Continuing Session**\n\n"
+                f"Session ID: `{claude_session_id[:8]}...`\n"
+                f"Directory: `{current_dir.relative_to(settings.approved_directory)}/`\n\n"
+                f"Continuing where you left off...",
+                parse_mode="Markdown",
+            )
+
+            claude_response = await claude_integration.run_command(
+                prompt="",  # Empty prompt triggers --continue
+                working_directory=current_dir,
+                user_id=user_id,
+                session_id=claude_session_id,
+            )
+        else:
+            # No session in context, try to find the most recent session
+            await query.edit_message_text(
+                "🔍 **Looking for Recent Session**\n\n"
+                "Searching for your most recent session in this directory...",
+                parse_mode="Markdown",
+            )
+
+            claude_response = await claude_integration.continue_session(
+                user_id=user_id,
+                working_directory=current_dir,
+                prompt=None,  # No prompt = use --continue
+            )
+
+        if claude_response:
+            # Update session ID in context
+            context.user_data["claude_session_id"] = claude_response.session_id
+
+            # Send Claude's response
+            await query.message.reply_text(
+                f"✅ **Session Continued**\n\n"
+                f"{claude_response.content[:500]}{'...' if len(claude_response.content) > 500 else ''}",
+                parse_mode="Markdown",
+            )
+        else:
+            # No session found to continue
+            await query.edit_message_text(
+                "❌ **No Session Found**\n\n"
+                f"No recent Claude session found in this directory.\n"
+                f"Directory: `{current_dir.relative_to(settings.approved_directory)}/`\n\n"
+                f"**What you can do:**\n"
+                f"• Use the button below to start a fresh session\n"
+                f"• Check your session status\n"
+                f"• Navigate to a different directory",
+                parse_mode="Markdown",
+                reply_markup=InlineKeyboardMarkup([
+                    [
+                        InlineKeyboardButton(
+                            "🆕 New Session", callback_data="action:new_session"
+                        ),
+                        InlineKeyboardButton(
+                            "📊 Status", callback_data="action:status"
+                        ),
+                    ]
+                ])
+            )
+
+    except Exception as e:
+        logger.error("Error in continue action", error=str(e), user_id=user_id)
         await query.edit_message_text(
-            "❌ **No Active Session**\n\n"
-            "You don't have an active Claude session to continue.\n"
-            "Would you like to start a new one?",
+            f"❌ **Error Continuing Session**\n\n"
+            f"An error occurred: `{str(e)}`\n\n"
+            f"Try starting a new session instead.",
             parse_mode="Markdown",
-            reply_markup=reply_markup,
+            reply_markup=InlineKeyboardMarkup([
+                [
+                    InlineKeyboardButton(
+                        "🆕 New Session", callback_data="action:new_session"
+                    )
+                ]
+            ])
         )
 
 
