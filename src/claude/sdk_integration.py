@@ -60,8 +60,13 @@ class ClaudeSDKManager:
         self.config = config
         self.active_sessions: Dict[str, Dict[str, Any]] = {}
         
-        # Set up environment for Claude Code SDK
-        os.environ["ANTHROPIC_API_KEY"] = config.anthropic_api_key_str
+        # Set up environment for Claude Code SDK if API key is provided
+        # If no API key is provided, the SDK will use existing CLI authentication
+        if config.anthropic_api_key_str:
+            os.environ["ANTHROPIC_API_KEY"] = config.anthropic_api_key_str
+            logger.info("Using provided API key for Claude SDK authentication")
+        else:
+            logger.info("No API key provided, using existing Claude CLI authentication")
 
     async def execute_command(
         self,
@@ -164,11 +169,24 @@ class ClaudeSDKManager:
         try:
             if isinstance(message, AssistantMessage):
                 # Extract content from assistant message
-                content = getattr(message, 'content', '')
-                if content:
+                content = getattr(message, 'content', [])
+                if content and isinstance(content, list):
+                    # Extract text from TextBlock objects
+                    text_parts = []
+                    for block in content:
+                        if hasattr(block, 'text'):
+                            text_parts.append(block.text)
+                    if text_parts:
+                        update = StreamUpdate(
+                            type="assistant",
+                            content="\n".join(text_parts),
+                        )
+                        await stream_callback(update)
+                elif content:
+                    # Fallback for non-list content
                     update = StreamUpdate(
                         type="assistant",
-                        content=content,
+                        content=str(content),
                     )
                     await stream_callback(update)
                 
@@ -193,9 +211,15 @@ class ClaudeSDKManager:
         
         for message in messages:
             if isinstance(message, AssistantMessage):
-                content = getattr(message, 'content', '')
-                if content:
-                    content_parts.append(content)
+                content = getattr(message, 'content', [])
+                if content and isinstance(content, list):
+                    # Extract text from TextBlock objects
+                    for block in content:
+                        if hasattr(block, 'text'):
+                            content_parts.append(block.text)
+                elif content:
+                    # Fallback for non-list content
+                    content_parts.append(str(content))
         
         return "\n".join(content_parts)
 

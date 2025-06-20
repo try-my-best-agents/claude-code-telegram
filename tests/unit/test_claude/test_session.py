@@ -197,7 +197,6 @@ class TestSessionManager:
             telegram_bot_token="test:token",
             telegram_bot_username="testbot",
             approved_directory=tmp_path,
-            anthropic_api_key="test-api-key",
             session_timeout_hours=24,
             max_sessions_per_user=2,
         )

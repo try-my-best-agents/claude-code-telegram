@@ -16,12 +16,11 @@ class TestClaudeSDKManager:
 
     @pytest.fixture
     def config(self, tmp_path):
-        """Create test config."""
+        """Create test config without API key."""
         return Settings(
             telegram_bot_token="test:token",
             telegram_bot_username="testbot",
             approved_directory=tmp_path,
-            anthropic_api_key="test-api-key",
             use_sdk=True,
             claude_timeout_seconds=2,  # Short timeout for testing
         )
@@ -31,16 +30,28 @@ class TestClaudeSDKManager:
         """Create SDK manager."""
         return ClaudeSDKManager(config)
 
-    async def test_sdk_manager_initialization(self, config):
-        """Test SDK manager initialization."""
+    async def test_sdk_manager_initialization_with_api_key(self, tmp_path):
+        """Test SDK manager initialization with API key."""
+        from src.config.settings import Settings
+        
+        # Test with API key provided
+        config_with_key = Settings(
+            telegram_bot_token="test:token",
+            telegram_bot_username="testbot",
+            approved_directory=tmp_path,
+            anthropic_api_key="test-api-key",
+            use_sdk=True,
+            claude_timeout_seconds=2,
+        )
+        
         # Store original env var
         original_api_key = os.environ.get("ANTHROPIC_API_KEY")
         
         try:
-            manager = ClaudeSDKManager(config)
+            manager = ClaudeSDKManager(config_with_key)
             
             # Check that API key was set in environment
-            assert os.environ.get("ANTHROPIC_API_KEY") == config.anthropic_api_key_str
+            assert os.environ.get("ANTHROPIC_API_KEY") == "test-api-key"
             assert manager.active_sessions == {}
             
         finally:
@@ -49,6 +60,27 @@ class TestClaudeSDKManager:
                 os.environ["ANTHROPIC_API_KEY"] = original_api_key
             elif "ANTHROPIC_API_KEY" in os.environ:
                 del os.environ["ANTHROPIC_API_KEY"]
+
+    async def test_sdk_manager_initialization_without_api_key(self, config):
+        """Test SDK manager initialization without API key (uses CLI auth)."""
+        # Store original env var
+        original_api_key = os.environ.get("ANTHROPIC_API_KEY")
+        
+        try:
+            # Remove any existing API key
+            if "ANTHROPIC_API_KEY" in os.environ:
+                del os.environ["ANTHROPIC_API_KEY"]
+                
+            manager = ClaudeSDKManager(config)
+            
+            # Check that no API key was set (should use CLI auth)
+            assert config.anthropic_api_key_str is None
+            assert manager.active_sessions == {}
+            
+        finally:
+            # Restore original env var
+            if original_api_key:
+                os.environ["ANTHROPIC_API_KEY"] = original_api_key
 
     async def test_execute_command_success(self, sdk_manager):
         """Test successful command execution."""
