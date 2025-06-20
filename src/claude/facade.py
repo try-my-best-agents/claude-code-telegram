@@ -4,13 +4,14 @@ Provides simple interface for bot handlers.
 """
 
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Union
 
 import structlog
 
 from ..config.settings import Settings
 from .exceptions import ClaudeToolValidationError
 from .integration import ClaudeProcessManager, ClaudeResponse, StreamUpdate
+from .sdk_integration import ClaudeSDKManager
 from .monitor import ToolMonitor
 from .session import SessionManager
 
@@ -23,13 +24,20 @@ class ClaudeIntegration:
     def __init__(
         self,
         config: Settings,
-        process_manager: ClaudeProcessManager,
-        session_manager: SessionManager,
-        tool_monitor: ToolMonitor,
+        process_manager: Optional[ClaudeProcessManager] = None,
+        sdk_manager: Optional[ClaudeSDKManager] = None,
+        session_manager: Optional[SessionManager] = None,
+        tool_monitor: Optional[ToolMonitor] = None,
     ):
         """Initialize Claude integration facade."""
         self.config = config
-        self.process_manager = process_manager
+        
+        # Use SDK by default if configured
+        if config.use_sdk:
+            self.manager = sdk_manager or ClaudeSDKManager(config)
+        else:
+            self.manager = process_manager or ClaudeProcessManager(config)
+            
         self.session_manager = session_manager
         self.tool_monitor = tool_monitor
 
@@ -128,7 +136,7 @@ class ClaudeIntegration:
                 else session.session_id
             )
 
-            response = await self.process_manager.execute_command(
+            response = await self.manager.execute_command(
                 prompt=prompt,
                 working_directory=working_directory,
                 session_id=claude_session_id,
@@ -296,7 +304,7 @@ class ClaudeIntegration:
         logger.info("Shutting down Claude integration")
 
         # Kill any active processes
-        await self.process_manager.kill_all_processes()
+        await self.manager.kill_all_processes()
 
         # Clean up expired sessions
         await self.cleanup_expired_sessions()

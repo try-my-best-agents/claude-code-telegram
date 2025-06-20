@@ -16,7 +16,14 @@ from typing import Dict, List, Optional
 import structlog
 
 from ..config.settings import Settings
-from .integration import ClaudeResponse
+from typing import TYPE_CHECKING, Union
+
+if TYPE_CHECKING:
+    from .integration import ClaudeResponse as CLIClaudeResponse
+    from .sdk_integration import ClaudeResponse as SDKClaudeResponse
+
+# Union type for both CLI and SDK responses
+ClaudeResponse = Union["CLIClaudeResponse", "SDKClaudeResponse"]
 
 logger = structlog.get_logger()
 
