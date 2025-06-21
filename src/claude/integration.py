@@ -98,7 +98,9 @@ class ClaudeProcessManager:
 
         # Memory optimization settings
         self.max_message_buffer = 1000  # Limit message history
-        self.streaming_buffer_size = 8192  # Streaming buffer limit per read
+        self.streaming_buffer_size = (
+            65536  # 64KB streaming buffer for large JSON messages
+        )
 
     async def execute_command(
         self,
