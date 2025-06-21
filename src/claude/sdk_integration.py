@@ -261,23 +261,77 @@ class ClaudeSDKManager:
             raise ClaudeProcessError(f"Claude SDK error: {str(e)}")
 
         except Exception as e:
-            logger.error(
-                "Unexpected error in Claude SDK",
-                error=str(e),
-                error_type=type(e).__name__,
-            )
-            raise ClaudeProcessError(f"Unexpected error: {str(e)}")
+            # Handle ExceptionGroup from TaskGroup operations (Python 3.11+)
+            if type(e).__name__ == "ExceptionGroup" or hasattr(e, "exceptions"):
+                logger.error(
+                    "Task group error in Claude SDK",
+                    error=str(e),
+                    error_type=type(e).__name__,
+                    exception_count=len(getattr(e, "exceptions", [])),
+                    exceptions=[
+                        str(ex) for ex in getattr(e, "exceptions", [])[:3]
+                    ],  # Log first 3 exceptions
+                )
+                # Extract the most relevant exception from the group
+                exceptions = getattr(e, "exceptions", [e])
+                main_exception = exceptions[0] if exceptions else e
+                raise ClaudeProcessError(
+                    f"Claude SDK task error: {str(main_exception)}"
+                )
+
+            # Check if it's an ExceptionGroup disguised as a regular exception
+            elif hasattr(e, "__notes__") and "TaskGroup" in str(e):
+                logger.error(
+                    "TaskGroup related error in Claude SDK",
+                    error=str(e),
+                    error_type=type(e).__name__,
+                )
+                raise ClaudeProcessError(f"Claude SDK task error: {str(e)}")
+
+            else:
+                logger.error(
+                    "Unexpected error in Claude SDK",
+                    error=str(e),
+                    error_type=type(e).__name__,
+                )
+                raise ClaudeProcessError(f"Unexpected error: {str(e)}")
 
     async def _execute_query_with_streaming(
         self, prompt: str, options, messages: List, stream_callback: Optional[Callable]
     ) -> None:
         """Execute query with streaming and collect messages."""
-        async for message in query(prompt=prompt, options=options):
-            messages.append(message)
+        try:
+            async for message in query(prompt=prompt, options=options):
+                messages.append(message)
 
-            # Handle streaming callback
-            if stream_callback:
-                await self._handle_stream_message(message, stream_callback)
+                # Handle streaming callback
+                if stream_callback:
+                    try:
+                        await self._handle_stream_message(message, stream_callback)
+                    except Exception as callback_error:
+                        logger.warning(
+                            "Stream callback failed",
+                            error=str(callback_error),
+                            error_type=type(callback_error).__name__,
+                        )
+                        # Continue processing even if callback fails
+
+        except Exception as e:
+            # Handle both ExceptionGroups and regular exceptions
+            if type(e).__name__ == "ExceptionGroup" or hasattr(e, "exceptions"):
+                logger.error(
+                    "TaskGroup error in streaming execution",
+                    error=str(e),
+                    error_type=type(e).__name__,
+                )
+            else:
+                logger.error(
+                    "Error in streaming execution",
+                    error=str(e),
+                    error_type=type(e).__name__,
+                )
+            # Re-raise to be handled by the outer try-catch
+            raise
 
     async def _handle_stream_message(
         self, message: Message, stream_callback: Callable[[StreamUpdate], None]
