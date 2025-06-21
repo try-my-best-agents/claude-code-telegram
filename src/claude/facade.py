@@ -11,8 +11,8 @@ import structlog
 from ..config.settings import Settings
 from .exceptions import ClaudeToolValidationError
 from .integration import ClaudeProcessManager, ClaudeResponse, StreamUpdate
-from .sdk_integration import ClaudeSDKManager
 from .monitor import ToolMonitor
+from .sdk_integration import ClaudeSDKManager
 from .session import SessionManager
 
 logger = structlog.get_logger()
@@ -31,13 +31,13 @@ class ClaudeIntegration:
     ):
         """Initialize Claude integration facade."""
         self.config = config
-        
+
         # Use SDK by default if configured
         if config.use_sdk:
             self.manager = sdk_manager or ClaudeSDKManager(config)
         else:
             self.manager = process_manager or ClaudeProcessManager(config)
-            
+
         self.session_manager = session_manager
         self.tool_monitor = tool_monitor
 

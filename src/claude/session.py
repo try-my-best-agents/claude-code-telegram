@@ -11,12 +11,11 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import TYPE_CHECKING, Dict, List, Optional, Union
 
 import structlog
 
 from ..config.settings import Settings
-from typing import TYPE_CHECKING, Union
 
 if TYPE_CHECKING:
     from .integration import ClaudeResponse as CLIClaudeResponse

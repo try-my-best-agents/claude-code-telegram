@@ -1063,6 +1063,55 @@ async def handle_export_callback(
         await query.edit_message_text(f"❌ **Export Failed**\n\n{str(e)}")
 
 
+async def handle_quick_action_callback(
+    query, action_id: str, context: ContextTypes.DEFAULT_TYPE
+) -> None:
+    """Handle quick action callbacks."""
+    # For now, just show a message that the action isn't implemented
+    await query.edit_message_text(
+        f"❌ **Quick Action Not Implemented**\n\n"
+        f"The quick action '{action_id}' is not yet implemented.\n"
+        f"Please use text commands instead.",
+        parse_mode="Markdown",
+    )
+
+
+async def handle_followup_callback(
+    query, action_id: str, context: ContextTypes.DEFAULT_TYPE
+) -> None:
+    """Handle followup action callbacks."""
+    await query.edit_message_text(
+        f"❌ **Followup Action Not Implemented**\n\n"
+        f"The followup action '{action_id}' is not yet implemented.\n"
+        f"Please use text commands instead.",
+        parse_mode="Markdown",
+    )
+
+
+async def handle_conversation_callback(
+    query, action: str, context: ContextTypes.DEFAULT_TYPE
+) -> None:
+    """Handle conversation mode callbacks."""
+    await query.edit_message_text(
+        f"❌ **Conversation Action Not Implemented**\n\n"
+        f"The conversation action '{action}' is not yet implemented.\n"
+        f"Please use text commands instead.",
+        parse_mode="Markdown",
+    )
+
+
+async def handle_export_callback(
+    query, format: str, context: ContextTypes.DEFAULT_TYPE
+) -> None:
+    """Handle export callbacks."""
+    await query.edit_message_text(
+        f"❌ **Export Not Implemented**\n\n"
+        f"Export to {format} format is not yet implemented.\n"
+        f"Please use text commands instead.",
+        parse_mode="Markdown",
+    )
+
+
 def _format_file_size(size: int) -> str:
     """Format file size in human-readable format."""
     for unit in ["B", "KB", "MB", "GB"]:

@@ -8,7 +8,7 @@ import structlog
 
 from src.config.settings import Settings
 from src.security.validators import SecurityValidator
-from src.storage.facade import StorageFacade
+from src.storage.facade import Storage
 
 from .conversation_mode import ConversationEnhancer
 from .file_handler import FileHandler
@@ -23,9 +23,7 @@ logger = structlog.get_logger(__name__)
 class FeatureRegistry:
     """Manage all bot features"""
 
-    def __init__(
-        self, config: Settings, storage: StorageFacade, security: SecurityValidator
-    ):
+    def __init__(self, config: Settings, storage: Storage, security: SecurityValidator):
         self.config = config
         self.storage = storage
         self.security = security

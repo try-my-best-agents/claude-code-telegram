@@ -117,7 +117,9 @@ Choose one of these authentication methods:
 # Follow instructions at https://claude.ai/code
 
 # Authenticate with Claude
-claude auth login
+claude
+
+# follow the prompts to authenticate
 
 # The bot will automatically use your CLI credentials
 ```

@@ -131,7 +131,7 @@ async def create_application(config: Settings) -> Dict[str, Any]:
     session_storage = SQLiteSessionStorage(storage.db_manager)
     session_manager = SessionManager(config, session_storage)
     tool_monitor = ToolMonitor(config, security_validator)
-    
+
     # Create Claude manager based on configuration
     if config.use_sdk:
         logger.info("Using Claude Python SDK integration")

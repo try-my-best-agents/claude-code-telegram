@@ -6,7 +6,7 @@ from datetime import datetime
 from enum import Enum
 from typing import List
 
-from src.storage.facade import StorageFacade
+from src.storage.facade import Storage
 from src.utils.constants import MAX_SESSION_LENGTH
 
 
@@ -33,7 +33,7 @@ class ExportedSession:
 class SessionExporter:
     """Handles exporting chat sessions in various formats."""
 
-    def __init__(self, storage: StorageFacade):
+    def __init__(self, storage: Storage):
         """Initialize exporter with storage dependency.
 
         Args:

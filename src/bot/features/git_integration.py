@@ -6,7 +6,7 @@ import re
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import List
+from typing import List, Optional, Set, Tuple
 
 from src.config.settings import Settings
 from src.exceptions import SecurityError
