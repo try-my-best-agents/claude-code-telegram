@@ -17,20 +17,20 @@ from typing import Any, AsyncIterator, Callable, Dict, List, Optional
 import structlog
 from claude_code_sdk import (
     ClaudeCodeOptions,
-    Message,
-    query,
-    CLINotFoundError,
     ClaudeSDKError,
-    ProcessError,
     CLIConnectionError,
+    CLINotFoundError,
+    Message,
+    ProcessError,
+    query,
 )
 from claude_code_sdk.types import (
     AssistantMessage,
     ResultMessage,
-    UserMessage,
     TextBlock,
-    ToolUseBlock,
     ToolResultBlock,
+    ToolUseBlock,
+    UserMessage,
 )
 
 from ..config.settings import Settings
@@ -45,8 +45,8 @@ logger = structlog.get_logger()
 
 def find_claude_cli(claude_cli_path: Optional[str] = None) -> Optional[str]:
     """Find Claude CLI in common locations."""
-    import shutil
     import glob
+    import shutil
 
     # First check if a specific path was provided via config or env
     if claude_cli_path:

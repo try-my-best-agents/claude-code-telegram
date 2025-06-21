@@ -16,6 +16,73 @@ from ...security.validators import SecurityValidator
 logger = structlog.get_logger()
 
 
+async def _format_progress_update(update_obj) -> Optional[str]:
+    """Format progress updates with enhanced context and visual indicators."""
+    if update_obj.type == "tool_result":
+        # Show tool completion status
+        tool_name = "Unknown"
+        if update_obj.metadata and update_obj.metadata.get("tool_use_id"):
+            # Try to extract tool name from context if available
+            tool_name = update_obj.metadata.get("tool_name", "Tool")
+
+        if update_obj.is_error():
+            return f"❌ **{tool_name} failed**\n\n_{update_obj.get_error_message()}_"
+        else:
+            execution_time = ""
+            if update_obj.metadata and update_obj.metadata.get("execution_time_ms"):
+                time_ms = update_obj.metadata["execution_time_ms"]
+                execution_time = f" ({time_ms}ms)"
+            return f"✅ **{tool_name} completed**{execution_time}"
+
+    elif update_obj.type == "progress":
+        # Handle progress updates
+        progress_text = f"🔄 **{update_obj.content or 'Working...'}**"
+
+        percentage = update_obj.get_progress_percentage()
+        if percentage is not None:
+            # Create a simple progress bar
+            filled = int(percentage / 10)  # 0-10 scale
+            bar = "█" * filled + "░" * (10 - filled)
+            progress_text += f"\n\n`{bar}` {percentage}%"
+
+        if update_obj.progress:
+            step = update_obj.progress.get("step")
+            total_steps = update_obj.progress.get("total_steps")
+            if step and total_steps:
+                progress_text += f"\n\nStep {step} of {total_steps}"
+
+        return progress_text
+
+    elif update_obj.type == "error":
+        # Handle error messages
+        return f"❌ **Error**\n\n_{update_obj.get_error_message()}_"
+
+    elif update_obj.type == "assistant" and update_obj.tool_calls:
+        # Show when tools are being called
+        tool_names = update_obj.get_tool_names()
+        if tool_names:
+            tools_text = ", ".join(tool_names)
+            return f"🔧 **Using tools:** {tools_text}"
+
+    elif update_obj.type == "assistant" and update_obj.content:
+        # Regular content updates with preview
+        content_preview = (
+            update_obj.content[:150] + "..."
+            if len(update_obj.content) > 150
+            else update_obj.content
+        )
+        return f"🤖 **Claude is working...**\n\n_{content_preview}_"
+
+    elif update_obj.type == "system":
+        # System initialization or other system messages
+        if update_obj.metadata and update_obj.metadata.get("subtype") == "init":
+            tools_count = len(update_obj.metadata.get("tools", []))
+            model = update_obj.metadata.get("model", "Claude")
+            return f"🚀 **Starting {model}** with {tools_count} tools available"
+
+    return None
+
+
 def _format_error_message(error_str: str) -> str:
     """Format error messages for user-friendly display."""
     if "usage limit reached" in error_str.lower():
@@ -118,20 +185,12 @@ async def handle_text_message(
         # Get existing session ID
         session_id = context.user_data.get("claude_session_id")
 
-        # Stream updates handler
+        # Enhanced stream updates handler with progress tracking
         async def stream_handler(update_obj):
             try:
-                if update_obj.content:
-                    # Update progress message with streaming content
-                    content_preview = (
-                        update_obj.content[:100] + "..."
-                        if len(update_obj.content) > 100
-                        else update_obj.content
-                    )
-                    await progress_msg.edit_text(
-                        f"🤖 **Claude is working...**\n\n" f"_{content_preview}_",
-                        parse_mode="Markdown",
-                    )
+                progress_text = await _format_progress_update(update_obj)
+                if progress_text:
+                    await progress_msg.edit_text(progress_text, parse_mode="Markdown")
             except Exception as e:
                 logger.warning("Failed to update progress message", error=str(e))
 
