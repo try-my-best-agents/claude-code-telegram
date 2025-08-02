@@ -194,6 +194,14 @@ class Settings(BaseSettings):
             raise ValueError(f"log_level must be one of {valid_levels}")
         return v.upper()  # type: ignore[no-any-return]
 
+    @field_validator("claude_allowed_tools", mode="before")
+    @classmethod
+    def validate_claude_allowed_tools(cls, v: Any) -> Optional[List[str]]:
+        """Validate claude_allowed_tools."""
+        if isinstance(v, str):
+            return [tool.strip() for tool in v.split(",") if tool.strip()]
+        return v  # type: ignore[no-any-return]
+
     @model_validator(mode="after")
     def validate_cross_field_dependencies(self) -> "Settings":
         """Validate dependencies between fields."""
