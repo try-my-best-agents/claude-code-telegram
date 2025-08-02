@@ -158,6 +158,9 @@ class Settings(BaseSettings):
         """Parse comma-separated user IDs."""
         if isinstance(v, str):
             return [int(uid.strip()) for uid in v.split(",") if uid.strip()]
+        # handle single user id
+        elif isinstance(v, int):
+            return [v]
         return v  # type: ignore[no-any-return]
 
     @field_validator("approved_directory")
