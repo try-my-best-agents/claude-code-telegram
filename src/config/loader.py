@@ -91,14 +91,15 @@ def _apply_environment_overrides(settings: Settings, env: Optional[str]) -> Sett
         logger.warning("Unknown environment, using default settings", environment=env)
 
     # Apply overrides
+    settings_dict = settings.model_dump()
     for key, value in overrides.items():
-        if hasattr(settings, key):
-            setattr(settings, key, value)
+        if hasattr(settings_dict, key):
+            setattr(settings_dict, key, value)
             logger.debug(
                 "Applied environment override", key=key, value=value, environment=env
             )
-
-    return settings
+    # re-instantiate the settings model
+    return Settings(**settings_dict)
 
 
 def _validate_config(settings: Settings) -> None:
